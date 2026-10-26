@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="uz"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<title>SHEYX UC Shop</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://sad.adsgram.ai/js/sad.min.js"></script>
+<style>
+:root{--bg:#051F20;--card:#0c2a2b;--line:#1d4345;--ac:#ff5a1f;--tx:#f2f2f2;--mu:#8fa6a6}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+#app{padding:16px 14px calc(150px + env(safe-area-inset-bottom))}
+h2{font-size:18px;margin:6px 0 14px}.sub{color:var(--ac);font-size:11px;letter-spacing:1px;font-weight:700}
+.row{display:flex;gap:10px}.row>*{flex:1}
+input{width:100%;background:#031516;border:1px solid var(--line);border-radius:12px;padding:14px;color:var(--tx);font-size:15px;outline:none}
+input:focus{border-color:var(--ac)}
+.btn{background:transparent;border:1px solid var(--ac);color:var(--ac);border-radius:12px;padding:13px 16px;font-weight:700;font-size:14px}
+.btn.fill{background:var(--ac);color:#fff;width:100%}.btn:disabled{opacity:.5}
+.chips{display:flex;gap:8px;margin:14px 0;overflow-x:auto}
+.chip{padding:8px 14px;border-radius:20px;background:var(--card);color:var(--mu);font-size:12px;font-weight:700;white-space:nowrap}
+.chip.on{background:var(--ac);color:#fff}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pk{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.pk.on{border-color:var(--ac);box-shadow:0 0 0 1px var(--ac) inset}
+.pk b{display:block;font-size:15px}.pk span{color:var(--mu);font-size:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px}
+.mu{color:var(--mu);font-size:12px}.st{float:right;font-size:12px;font-weight:700}
+.wait{color:#ffc107}.ok{color:#2ecc71}.no{color:#ff5252}
+.ad{display:block;background:linear-gradient(90deg,#14403f,#0c2a2b);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;color:var(--tx);text-decoration:none;font-size:13px}
+#buy{position:fixed;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));padding:8px 14px;background:linear-gradient(transparent,var(--bg) 40%);display:none;z-index:5}
+nav{position:fixed;left:0;right:0;bottom:0;height:calc(64px + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:#031516;border-top:1px solid var(--line);display:flex;z-index:10}
+nav div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;font-weight:700;color:var(--mu)}
+nav div.on{color:var(--ac)}nav i{font-style:normal;font-size:20px}
+#wheel{width:220px;height:220px;border-radius:50%;margin:20px auto;border:6px solid var(--ac);transition:transform 4s cubic-bezier(.17,.67,.2,1);
+background:conic-gradient(#ff5a1f 0 72deg,#14403f 72deg 144deg,#ff8a50 144deg 216deg,#0c2a2b 216deg 288deg,#c94a18 288deg 360deg)}
+.pin{text-align:center;color:var(--ac);font-size:26px;margin-bottom:-14px}
+#toast{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:#111;border:1px solid var(--ac);padding:10px 16px;border-radius:12px;font-size:13px;z-index:99;display:none;max-width:90%}
+</style></head><body>
+<div id="app"></div><div id="buy"><button class="btn fill" id="buyBtn"></button></div>
+<nav id="nav"></nav><div id="toast"></div>
+<script>
+const tg=Telegram.WebApp;tg.ready();tg.expand();try{tg.setBackgroundColor('#051F20');tg.setHeaderColor('#051F20')}catch(e){}
+const $=s=>document.querySelector(s),fmt=n=>Number(n).toLocaleString('ru-RU').replace(/\u00a0/g,' ');
+const TABS=[['menu','⌂','Menyu'],['orders','☰','Buyurtmalar'],['wheel','◔','Baraban'],['pay','▭','To\'lovlar'],['me','☺','Profil']];
+const ST={wait:['Kutilmoqda','wait'],ok:['Bajarildi','ok'],no:['Rad etildi','no']};
+let S=null,tab='menu',sel=null,pid='',verified=false;
+function toast(t){const e=$('#toast');e.textContent=t;e.style.display='block';clearTimeout(e.t);e.t=setTimeout(()=>e.style.display='none',3000)}
+async function api(p,b={}){const r=await fetch('/api/'+p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...b,init:tg.initData})});
+ const j=await r.json();if(!r.ok)throw new Error(j.error||'Xatolik');return j}
+async function load(){try{S=await api('init');render()}catch(e){$('#app').innerHTML='<div class="card">'+e.message+'</div>'}}
+$('#nav').innerHTML=TABS.map(t=>`<div data-t="${t[0]}"><i>${t[1]}</i>${t[2]}</div>`).join('');
+$('#nav').onclick=e=>{const d=e.target.closest('[data-t]');if(d){tab=d.dataset.t;render()}};
+function render(){
+ document.querySelectorAll('nav div').forEach(d=>d.classList.toggle('on',d.dataset.t===tab));
+ $('#buy').style.display='none';
+ const v={menu,orders,wheel,pay,me}[tab]();$('#app').innerHTML=v;(({menu:bindMenu,wheel:bindWheel,pay:bindPay})[tab]||(()=>{}))()}
+function menu(){
+ const ads=S.ads.map(a=>`<a class="ad" href="${a.url}" target="_blank">📣 ${a.text}</a>`).join('');
+ return `${ads}<div class="sub">TANLANGAN O'YIN</div><h2>🎮 PUBG Mobile</h2>
+ <div class="mu" style="margin-bottom:6px">Player ID</div>
+ <div class="row"><input id="pid" inputmode="numeric" maxlength="14" value="${pid}" placeholder="Player ID kiriting" style="flex:3"><button class="btn" id="chk" style="flex:1.2">Tekshirish</button></div>
+ <div class="chips"><div class="chip on">UC</div><div class="chip" data-soon>Prime va Emblemalar</div><div class="chip" data-soon>WOW Coins</div></div>
+ <div class="mu" style="margin-bottom:8px">Paketni tanlang</div>
+ <div class="grid">${S.prices.map(p=>`<div class="pk${sel===p.uc?' on':''}" data-uc="${p.uc}"><b>🪙 ${p.uc} UC</b><span>${fmt(p.price)} UZS</span></div>`).join('')}</div>`}
+function bindMenu(){
+ document.querySelectorAll('[data-soon]').forEach(c=>c.onclick=()=>toast('Tez orada!'));
+ $('#pid').oninput=e=>{pid=e.target.value.replace(/\D/g,'');e.target.value=pid;verified=false};
+ $('#chk').onclick=()=>{if(pid.length>=5){verified=true;toast('✅ ID qabul qilindi: '+pid)}else toast('Player ID noto\'g\'ri')};
+ document.querySelectorAll('.pk').forEach(c=>c.onclick=()=>{sel=+c.dataset.uc;document.querySelectorAll('.pk').forEach(x=>x.classList.toggle('on',x===c));showBuy()});
+ if(sel)showBuy()}
+function showBuy(){const p=S.prices.find(x=>x.uc===sel);if(!p)return;$('#buy').style.display='block';$('#buyBtn').textContent=`Sotib olish — ${p.uc} UC · ${fmt(p.price)} UZS`;
+ $('#buyBtn').onclick=async()=>{if(pid.length<5)return toast('Avval Player ID kiriting');
+  if(!confirm(`${p.uc} UC (${fmt(p.price)} UZS)\nPlayer ID: ${pid}\nBalansdan yechiladi. Tasdiqlaysizmi?`))return;
+  $('#buyBtn').disabled=true;try{await api('order',{uc:sel,player_id:pid});toast('✅ Buyurtma yuborildi. Admin tasdiqlashini kuting.');sel=null;await load();tab='orders';render()}catch(e){toast(e.message)}$('#buyBtn').disabled=false}}
+function orders(){return `<h2>Buyurtmalar</h2>`+(S.orders.map(o=>`<div class="card"><span class="st ${ST[o.status][1]}">${ST[o.status][0]}</span><b>#${o.id} · ${o.uc} UC</b><div class="mu">ID: ${o.player_id}<br>${fmt(o.price)} UZS · ${o.created}</div></div>`).join('')||'<div class="mu">Hozircha buyurtma yo\'q</div>')}
+function wheel(){const left=86400-(S.now-S.me.last_spin);
+ return `<h2>🎡 Baraban</h2><div class="mu">Reklama ko'ring va kuniga 1 marta aylantiring — yutuq balansingizga tushadi.</div><div class="pin">▼</div><div id="wheel"></div>
+ <button class="btn fill" id="spin">${left>0?'Keyingi aylantirish: '+Math.ceil(left/3600)+' soatdan so\'ng':'Reklama ko\'rib aylantirish'}</button>`}
+function bindWheel(){let rot=0;$('#spin').onclick=async()=>{
+ if(S.now-S.me.last_spin<86400)return toast('Baraban kuniga 1 marta aylanadi');
+ if(S.adsgram&&window.Adsgram){try{await Adsgram.init({blockId:S.adsgram}).show()}catch(e){return toast('Reklama to\'liq ko\'rilmadi')}}
+ try{const r=await api('spin');rot+=1800+Math.random()*360;$('#wheel').style.transform=`rotate(${rot}deg)`;
+  setTimeout(()=>{toast('🎉 Siz yutdingiz: '+fmt(r.prize)+' UZS');load()},4200)}catch(e){toast(e.message)}}}
+function pay(){return `<h2>To'lovlar</h2><div class="card"><div class="mu">Balans</div><b style="font-size:24px">${fmt(S.me.balance)} UZS</b></div>
+ <div class="card"><div class="mu">1. Kartaga pul o'tkazing:</div><b style="user-select:all">${S.card}</b>
+ <div class="mu" style="margin:12px 0 6px">2. O'tkazgan summangizni kiriting:</div><input id="amt" inputmode="numeric" placeholder="Masalan: 50000">
+ <button class="btn fill" id="paid" style="margin-top:10px">To'ladim</button></div>
+ <div class="mu" style="margin:14px 0 8px">Tarix</div>`+(S.payments.map(p=>`<div class="card"><span class="st ${ST[p.status][1]}">${ST[p.status][0]}</span><b>${fmt(p.amount)} UZS</b><div class="mu">${p.created}</div></div>`).join('')||'<div class="mu">Bo\'sh</div>')}
+function bindPay(){$('#paid').onclick=async()=>{const a=+$('#amt').value;if(a<5000)return toast('Minimal summa 5 000 UZS');
+ try{await api('topup',{amount:a});toast('✅ So\'rov yuborildi. Admin tasdiqlaydi.');await load()}catch(e){toast(e.message)}}}
+function me(){return `<h2>Profil</h2><div class="card"><b>${S.me.first_name||''}</b><div class="mu">@${S.me.username||'—'} · ID ${S.me.id}</div></div>
+ <div class="card"><div class="mu">Balans</div><b>${fmt(S.me.balance)} UZS</b></div><div class="card"><div class="mu">Ro'yxatdan o'tgan</div><b>${S.me.joined}</b></div>`}
+load();
+</script></body></html>
